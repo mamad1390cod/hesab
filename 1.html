@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H System - Personal Finance Manager</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+        .transition-all { transition: all 0.3s ease; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .gradient-card { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
+        .dark .gradient-card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
+        .modal { display: none; }
+        .modal.active { display: flex; }
+        .income-item { border-left: 4px solid #10b981; }
+        .expense-item { border-left: 4px solid #ef4444; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-track { background: #374151; }
+        .dark ::-webkit-scrollbar-thumb { background: #6b7280; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .balance-positive { color: #10b981; }
+        .balance-negative { color: #ef4444; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    <div id="app" class="min-h-screen">
+        <!-- Header -->
+        <header class="gradient-bg text-white shadow-lg sticky top-0 z-40">
+            <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-2xl font-bold">H</div>
+                    <h1 class="text-xl font-bold">H System</h1>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition" id="themeToggle">
+                        🌙
+                    </button>
+                    <span class="text-sm opacity-80" id="headerPageTitle">Dashboard</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="page active">
+            <div class="container mx-auto px-4 py-8">
+                <div class="text-center mb-12 animate-fade-in">
+                    <h2 class="text-4xl font-bold text-gray-800 dark:text-white mb-4">Welcome to H System</h2>
+                    <p class="text-gray-600 dark:text-gray-400">Manage your personal finances with ease</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                    <div onclick="showPage('createHPage')" class="card-hover cursor-pointer bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg transition-all">
+                        <div class="text-5xl mb-4">➕</div>
+                        <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">Create New H</h3>
+                        <p class="text-gray-500 dark:text-gray-400">Start a new financial profile</p>
+                    </div>
+                    <div onclick="showPage('myHsPage')" class="card-hover cursor-pointer bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg transition-all">
+                        <div class="text-5xl mb-4">📂</div>
+                        <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">My Hs</h3>
+                        <p class="text-gray-500 dark:text-gray-400">View all your profiles</p>
+                    </div>
+                    <div onclick="openCalculator()" class="card-hover cursor-pointer bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg transition-all">
+                        <div class="text-5xl mb-4">🧮</div>
+                        <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">Calculator</h3>
+                        <p class="text-gray-500 dark:text-gray-400">Quick calculations</p>
+                    </div>
+                    <div onclick="exportAllData()" class="card-hover cursor-pointer bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg transition-all">
+                        <div class="text-5xl mb-4">📤</div>
+                        <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">Export Data</h3>
+                        <p class="text-gray-500 dark:text-gray-400">Excel / PDF export</p>
+                    </div>
+                    <div onclick="showBackupModal()" class="card-hover cursor-pointer bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg transition-all">
+                        <div class="text-5xl mb-4">📦</div>
+                        <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">Backup</h3>
+                        <p class="text-gray-500 dark:text-gray-400">Save & restore data</p>
+                    </div>
+                    <div onclick="exitApp()" class="card-hover cursor-pointer bg-red-50 dark:bg-red-900/20 rounded-2xl p-8 shadow-lg transition-all border border-red-200 dark:border-red-800">
+                        <div class="text-5xl mb-4">❌</div>
+                        <h3 class="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">Exit App</h3>
+                        <p class="text-red-400 dark:text-red-500">Close the application</p>
+                    </div>
+                </div>
+                <div class="mt-12 text-center">
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg inline-block">
+                        <h4 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Quick Stats</h4>
+                        <div class="flex gap-8">
+                            <div>
+                                <div class="text-3xl font-bold text-purple-600" id="totalHsCount">0</div>
+                                <div class="text-gray-500 dark:text-gray-400">Total Hs</div>
+                            </div>
+                            <div>
+                                <div class="text-3xl font-bold text-green-600" id="totalIncomeAll">0</div>
+                                <div class="text-gray-500 dark:text-gray-400">Total Income</div>
+                            </div>
+                            <div>
+                                <div class="text-3xl font-bold text-red-600" id="totalExpenseAll">0</div>
+                                <div class="text-gray-500 dark:text-gray-400">Total Expenses</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create H Page -->
+        <div id="createHPage" class="page">
+            <div class="container mx-auto px-4 py-8">
+                <button onclick="showPage('dashboardPage')" class="mb-6 flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-purple-600 transition">
+                    ← Back to Dashboard
+                </button>
+                <div class="max-w-lg mx-auto">
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg animate-fade-in">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-6">Create New H</h2>
+                        <div class="mb-6">
+                            <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">H Name</label>
+                            <input type="text" id="newHName" placeholder="e.g., Personal Finance, Business..." 
+                                class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition">
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Currency</label>
+                            <select id="newHCurrency" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition">
+                                <option value="IRT">🇮🇷 Iranian Toman (IRT)</option>
+                                <option value="OMR">🇴🇲 Omani Rial (OMR)</option>
+                                <option value="USD">🇺🇸 US Dollar (USD)</option>
+                                <option value="EUR">🇪🇺 Euro (EUR)</option>
+                                <option value="INR">🇮🇳 Indian Rupee (INR)</option>
+                                <option value="GBP">🇬🇧 British Pound (GBP)</option>
+                                <option value="JPY">🇯🇵 Japanese Yen (JPY)</option>
+                                <option value="AED">🇦🇪 UAE Dirham (AED)</option>
+                            </select>
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Optional Password</label>
+                            <input type="password" id="newHPassword" placeholder="Leave empty for no password"
+                                class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition">
+                        </div>
+                        <button onclick="createNewH()" class="w-full py-3 gradient-bg text-white font-semibold rounded-xl hover:opacity-90 transition">
+                            Create H
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Hs Page -->
+        <div id="myHsPage" class="page">
+            <div class="container mx-auto px-4 py-8">
+                <button onclick="showPage('dashboardPage')" class="mb-6 flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-purple-600 transition">
+                    ← Back to Dashboard
+                </button>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">My Hs</h2>
+                    <button onclick="showPage('createHPage')" class="px-4 py-2 gradient-bg text-white rounded-xl hover:opacity-90 transition flex items-center gap-2">
+                        ➕ New H
+                    </button>
+                </div>
+                <div id="hsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- H cards will be inserted here -->
+                </div>
+                <div id="noHsMessage" class="text-center py-16 hidden">
+                    <div class="text-6xl mb-4">📭</div>
+                    <h3 class="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">No H profiles yet</h3>
+                    <p class="text-gray-500 dark:text-gray-500">Create your first H to get started</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- H Detail Page -->
+        <div id="hDetailPage" class="page">
+            <div class="container mx-auto px-4 py-6">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div class="flex items-center gap-4">
+                        <button onclick="showPage('myHsPage')" class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition text-gray-700 dark:text-gray-300">
+                            ←
+                        </button>
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white" id="currentHName">H Name</h2>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <select id="hCurrencySelect" onchange="updateHCurrency()" class="px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                            <option value="IRT">🇮🇷 IRT</option>
+                            <option value="OMR">🇴🇲 OMR</option>
+                            <option value="USD">🇺🇸 USD</option>
+                            <option value="EUR">🇪🇺 EUR</option>
+                            <option value="INR">🇮🇳 INR</option>
+                            <option value="GBP">🇬🇧 GBP</option>
+                            <option value="JPY">🇯🇵 JPY</option>
+                            <option value="AED">🇦🇪 AED</option>
+                        </select>
+                        <button onclick="openRenameModal()" class="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 hover:bg-blue-200 transition" title="Rename">
+                            ✏️
+                        </button>
+                        <button onclick="openLockModal()" class="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 hover:bg-yellow-200 transition" title="Password">
+                            🔒
+                        </button>
+                        <button onclick="confirmDeleteH()" class="p-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 hover:bg-red-200 transition" title="Delete">
+                            🗑
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                    <div class="bg-green-50 dark:bg-green-900/20 rounded-2xl p-5 border border-green-200 dark:border-green-800">
+                        <div class="text-green-600 dark:text-green-400 text-sm font-medium mb-1">Total Income</div>
+                        <div class="text-2xl font-bold text-green-700 dark:text-green-300" id="totalIncome">0</div>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-900/20 rounded-2xl p-5 border border-red-200 dark:border-red-800">
+                        <div class="text-red-600 dark:text-red-400 text-sm font-medium mb-1">Total Expenses</div>
+                        <div class="text-2xl font-bold text-red-700 dark:text-red-300" id="totalExpenses">0</div>
+                    </div>
+                    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-5 border border-purple-200 dark:border-purple-800">
+                        <div class="text-purple-600 dark:text-purple-400 text-sm font-medium mb-1">Remaining</div>
+                        <div class="text-2xl font-bold text-purple-700 dark:text-purple-300" id="remainingBalance">0</div>
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-5 border border-blue-200 dark:border-blue-800">
+                        <div class="text-blue-600 dark:text-blue-400 text-sm font-medium mb-1">Goal</div>
+                        <div class="text-2xl font-bold text-blue-700 dark:text-blue-300" id="financialGoal">0</div>
+                    </div>
+                    <div class="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-5 border border-orange-200 dark:border-orange-800">
+                        <div class="text-orange-600 dark:text-orange-400 text-sm font-medium mb-1">To Goal</div>
+                        <div class="text-2xl font-bold text-orange-700 dark:text-orange-300" id="remainingToGoal">0</div>
+                    </div>
+                </div>
+
+                <!-- Goal Progress Bar -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg mb-8">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-gray-700 dark:text-gray-300 font-medium">Goal Progress</span>
+                        <span class="text-purple-600 font-semibold" id="goalPercentage">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
+                        <div class="gradient-bg h-4 rounded-full transition-all duration-500" id="goalProgressBar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+                    <button onclick="openAddIncomeModal()" class="card-hover bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg transition-all text-center">
+                        <div class="text-3xl mb-2">➕</div>
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Add Income</div>
+                    </button>
+                    <button onclick="openAddExpenseModal()" class="card-hover bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg transition-all text-center">
+                        <div class="text-3xl mb-2">➖</div>
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Add Expense</div>
+                    </button>
+                    <button onclick="openSetGoalModal()" class="card-hover bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg transition-all text-center">
+                        <div class="text-3xl mb-2">🎯</div>
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Set Goal</div>
+                    </button>
+                    <button onclick="openNotesModal()" class="card-hover bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg transition-all text-center">
+                        <div class="text-3xl mb-2">📝</div>
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Notes</div>
+                    </button>
+                    <button onclick="openChartsModal()" class="card-hover bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg transition-all text-center">
+                        <div class="text-3xl mb-2">📊</div>
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Charts</div>
+                    </button>
+                    <button onclick="openCalculator()" class="card-hover bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg transition-all text-center">
+                        <div class="text-3xl mb-2">🧮</div>
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Calculator</div>
+                    </button>
+                </div>
+
+                <!-- Transactions List -->
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-semibold text-gray-800 dark:text-white">Recent Transactions</h3>
+                        <div class="flex gap-2">
+                            <button onclick="filterTransactions('all')" class="px-3 py-1 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 text-sm font-medium filter-btn active" data-filter="all">All</button>
+                            <button onclick="filterTransactions('income')" class="px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm font-medium filter-btn" data-filter="income">Income</button>
+                            <button onclick="filterTransactions('expense')" class="px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm font-medium filter-btn" data-filter="expense">Expenses</button>
+                        </div>
+                    </div>
+                    <div id="transactionsList" class="space-y-3 max-h-96 overflow-y-auto">
+                        <!-- Transactions will be inserted here -->
+                    </div>
+                    <div id="noTransactionsMessage" class="text-center py-10 hidden">
+                        <div class="text-4xl mb-3">📋</div>
+                        <p class="text-gray-500 dark:text-gray-400">No transactions yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calculator Modal -->
+        <div id="calculatorModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Calculator</h3>
+                    <button onclick="closeCalculator()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-4">
+                    <div class="bg-gray-100 dark:bg-gray-900 rounded-xl p-4 mb-4">
+                        <div id="calcDisplay" class="text-right text-3xl font-mono text-gray-800 dark:text-white overflow-hidden">0</div>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button onclick="calcClear()" class="p-4 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition">C</button>
+                        <button onclick="calcInput('(')" class="p-4 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition">(</button>
+                        <button onclick="calcInput(')')" class="p-4 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition">)</button>
+                        <button onclick="calcInput('/')" class="p-4 bg-purple-500 text-white rounded-xl font-semibold hover:bg-purple-600 transition">÷</button>
+                        <button onclick="calcInput('7')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">7</button>
+                        <button onclick="calcInput('8')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">8</button>
+                        <button onclick="calcInput('9')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">9</button>
+                        <button onclick="calcInput('*')" class="p-4 bg-purple-500 text-white rounded-xl font-semibold hover:bg-purple-600 transition">×</button>
+                        <button onclick="calcInput('4')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">4</button>
+                        <button onclick="calcInput('5')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">5</button>
+                        <button onclick="calcInput('6')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">6</button>
+                        <button onclick="calcInput('-')" class="p-4 bg-purple-500 text-white rounded-xl font-semibold hover:bg-purple-600 transition">−</button>
+                        <button onclick="calcInput('1')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">1</button>
+                        <button onclick="calcInput('2')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">2</button>
+                        <button onclick="calcInput('3')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">3</button>
+                        <button onclick="calcInput('+')" class="p-4 bg-purple-500 text-white rounded-xl font-semibold hover:bg-purple-600 transition">+</button>
+                        <button onclick="calcInput('0')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition col-span-2">0</button>
+                        <button onclick="calcInput('.')" class="p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition">.</button>
+                        <button onclick="calcEquals()" class="p-4 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600 transition">=</button>
+                    </div>
+                    <button onclick="copyCalcResult()" class="w-full mt-4 p-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition">
+                        📋 Copy Result
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Income Modal -->
+        <div id="addIncomeModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Add Income</h3>
+                    <button onclick="closeAddIncomeModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Description</label>
+                        <input type="text" id="incomeDescription" placeholder="e.g., Salary, Freelance..."
+                            class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 outline-none">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Amount</label>
+                        <input type="number" id="incomeAmount" placeholder="0.00" step="0.01"
+                            class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 outline-none">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Category</label>
+                        <select id="incomeCategory" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 outline-none">
+                            <option value="Salary">💼 Salary</option>
+                            <option value="Freelance">💻 Freelance</option>
+                            <option value="Investment">📈 Investment</option>
+                            <option value="Business">🏢 Business</option>
+                            <option value="Gift">🎁 Gift</option>
+                            <option value="Other">📦 Other</option>
+                        </select>
+                    </div>
+                    <button onclick="addIncome()" class="w-full py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition">
+                        Add Income
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Expense Modal -->
+        <div id="addExpenseModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Add Expense</h3>
+                    <button onclick="closeAddExpenseModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Description</label>
+                        <input type="text" id="expenseDescription" placeholder="e.g., Rent, Groceries..."
+                            class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-red-500 outline-none">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Amount</label>
+                        <input type="number" id="expenseAmount" placeholder="0.00" step="0.01"
+                            class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-red-500 outline-none">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Category</label>
+                        <select id="expenseCategory" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-red-500 outline-none">
+                            <option value="Food">🍔 Food</option>
+                            <option value="Transport">🚗 Transport</option>
+                            <option value="Shopping">🛍️ Shopping</option>
+                            <option value="Bills">📄 Bills</option>
+                            <option value="Health">🏥 Health</option>
+                            <option value="Entertainment">🎬 Entertainment</option>
+                            <option value="Education">📚 Education</option>
+                            <option value="Other">📦 Other</option>
+                        </select>
+                    </div>
+                    <button onclick="addExpense()" class="w-full py-3 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition">
+                        Add Expense
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Set Goal Modal -->
+        <div id="setGoalModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Set Financial Goal</h3>
+                    <button onclick="closeSetGoalModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <div class="mb-6">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Goal Amount</label>
+                        <input type="number" id="goalAmount" placeholder="0.00" step="0.01"
+                            class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <button onclick="setGoal()" class="w-full py-3 bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition">
+                        Set Goal
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes Modal -->
+        <div id="notesModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl animate-fade-in max-h-[80vh] flex flex-col">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700 flex-shrink-0">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">📝 Notes</h3>
+                    <button onclick="closeNotesModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-6 flex-1 overflow-y-auto">
+                    <textarea id="notesContent" placeholder="Write your notes here..."
+                        class="w-full h-64 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none resize-none"></textarea>
+                </div>
+                <div class="p-4 border-t dark:border-gray-700 flex justify-between items-center flex-shrink-0">
+                    <span class="text-sm text-gray-500" id="notesStatus">Auto-saved</span>
+                    <button onclick="saveNotes()" class="px-6 py-2 gradient-bg text-white font-semibold rounded-xl hover:opacity-90 transition">
+                        Save Notes
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Modal -->
+        <div id="chartsModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl animate-fade-in max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">📊 Charts & Analytics</h3>
+                    <button onclick="closeChartsModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-2xl p-6">
+                            <h4 class="text-gray-700 dark:text-gray-300 font-semibold mb-4">Income vs Expenses</h4>
+                            <canvas id="incomeExpenseChart"></canvas>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-2xl p-6">
+                            <h4 class="text-gray-700 dark:text-gray-300 font-semibold mb-4">Category Breakdown</h4>
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-2xl p-6 lg:col-span-2">
+                            <h4 class="text-gray-700 dark:text-gray-300 font-semibold mb-4">Goal Progress</h4>
+                            <canvas id="goalChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rename Modal -->
+        <div id="renameModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Rename H</h3>
+                    <button onclick="closeRenameModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <div class="mb-6">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">New Name</label>
+                        <input type="text" id="renameInput" placeholder="Enter new name..."
+                            class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <button onclick="renameH()" class="w-full py-3 bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition">
+                        Rename
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lock/Password Modal -->
+        <div id="lockModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">🔒 Password Protection</h3>
+                    <button onclick="closeLockModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <div class="mb-6">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">New Password (leave empty to remove)</label>
+                        <input type="password" id="lockPassword" placeholder="Enter password..."
+                            class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-yellow-500 outline-none">
+                    </div>
+                    <button onclick="setPassword()" class="w-full py-3 bg-yellow-500 text-white font-semibold rounded-xl hover:bg-yellow-600 transition">
+                        Set Password
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Password Unlock Modal -->
+        <div id="unlockModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">🔐 Enter Password</h3>
+                </div>
+                <div class="p-6">
+                    <div class="mb-6">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Password</label>
+                        <input type="password" id="unlockPassword" placeholder="Enter password to unlock..."
+                            class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="closeUnlockModal()" class="flex-1 py-3 bg-gray-500 text-white font-semibold rounded-xl hover:bg-gray-600 transition">
+                            Cancel
+                        </button>
+                        <button onclick="unlockH()" class="flex-1 py-3 gradient-bg text-white font-semibold rounded-xl hover:opacity-90 transition">
+                            Unlock
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backup Modal -->
+        <div id="backupModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">📦 Backup & Restore</h3>
+                    <button onclick="closeBackupModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <button onclick="exportBackup()" class="w-full py-4 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition flex items-center justify-center gap-2">
+                        📤 Export Backup (JSON)
+                    </button>
+                    <div class="relative">
+                        <input type="file" id="importFile" accept=".json" onchange="importBackup(event)" class="hidden">
+                        <button onclick="document.getElementById('importFile').click()" class="w-full py-4 bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition flex items-center justify-center gap-2">
+                            📥 Import Backup
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Modal -->
+        <div id="exportModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">📤 Export Data</h3>
+                    <button onclick="closeExportModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-6">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Select H to Export</label>
+                        <select id="exportHSelect" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white outline-none">
+                            <option value="all">All Hs</option>
+                        </select>
+                    </div>
+                    <div class="space-y-3">
+                        <button onclick="exportToExcel()" class="w-full py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition flex items-center justify-center gap-2">
+                            📊 Export to Excel (.xlsx)
+                        </button>
+                        <button onclick="exportToPDF()" class="w-full py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition flex items-center justify-center gap-2">
+                            📄 Export to PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Delete Modal -->
+        <div id="confirmModal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+                <div class="p-6 text-center">
+                    <div class="text-6xl mb-4">⚠️</div>
+                    <h3 class="text-xl font-semibold text-gray-800 dark:text-white mb-2">Are you sure?</h3>
+                    <p class="text-gray-500 dark:text-gray-400 mb-6" id="confirmMessage">This action cannot be undone.</p>
+                    <div class="flex gap-3">
+                        <button onclick="closeConfirmModal()" class="flex-1 py-3 bg-gray-500 text-white font-semibold rounded-xl hover:bg-gray-600 transition">
+                            Cancel
+                        </button>
+                        <button onclick="confirmAction()" class="flex-1 py-3 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-xl shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+            <span id="toastMessage">Message</span>
+        </div>
+    </div>
+
+    <script>
+        // ==================== Data Management ====================
+        const STORAGE_KEY = 'hsystem_data';
+        const SETTINGS_KEY = 'hsystem_settings';
+        
+        let appData = {
+            hs: {},
+            nextId: 1
+        };
+        
+        let settings = {
+            darkMode: false
+        };
+        
+        let currentHId = null;
+        let pendingAction = null;
+        let transactionFilter = 'all';
+        let charts = {};
+        
+        // Currency symbols
+        const currencySymbols = {
+            'IRT': 'تومان',
+            'OMR': 'ر.ع.',
+            'USD': '$',
+            'EUR': '€',
+            'INR': '₹',
+            'GBP': '£',
+            'JPY': '¥',
+            'AED': 'د.إ'
+        };
+        
+        // ==================== Initialization ====================
+        function initApp() {
+            loadData();
+            loadSettings();
+            updateDashboardStats();
+            applyTheme();
+        }
+        
+        function loadData() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                appData = JSON.parse(stored);
+            } else {
+                saveData();
+            }
+        }
+        
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+        
+        function loadSettings() {
+            const stored = localStorage.getItem(SETTINGS_KEY);
+            if (stored) {
+                settings = JSON.parse(stored);
+            }
+        }
+        
+        function saveSettings() {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        }
+        
+        // ==================== Theme Management ====================
+        function toggleDarkMode() {
+            settings.darkMode = !settings.darkMode;
+            saveSettings();
+            applyTheme();
+        }
+        
+        function applyTheme() {
+            if (settings.darkMode) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('themeToggle').textContent = '☀️';
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('themeToggle').textContent = '🌙';
+            }
+        }
+        
+        // ==================== Page Navigation ====================
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            
+            const titles = {
+                'dashboardPage': 'Dashboard',
+                'createHPage': 'Create New H',
+                'myHsPage': 'My Hs',
+                'hDetailPage': 'H Details'
+            };
+            document.getElementById('headerPageTitle').textContent = titles[pageId] || 'H System';
+            
+            if (pageId === 'myHsPage') {
+                renderHsList();
+            }
+        }
+        
+        // ==================== H Management ====================
+        function createNewH() {
+            const name = document.getElementById('newHName').value.trim();
+            const currency = document.getElementById('newHCurrency').value;
+            const password = document.getElementById('newHPassword').value;
+            
+            if (!name) {
+                showToast('Please enter a name for H', 'error');
+                return;
+            }
+            
+            const id = appData.nextId++;
+            appData.hs[id] = {
+                id,
+                name,
+                currency,
+                password: password || null,
+                income: [],
+                expenses: [],
+                goal: 0,
+                notes: '',
+                createdAt: new Date().toISOString()
+            };
+            
+            saveData();
+            document.getElementById('newHName').value = '';
+            document.getElementById('newHPassword').value = '';
+            
+            showToast('H created successfully!', 'success');
+            openHDetail(id);
+        }
+        
+        function renderHsList() {
+            const container = document.getElementById('hsList');
+            const noDataMsg = document.getElementById('noHsMessage');
+            const hs = Object.values(appData.hs);
+            
+            if (hs.length === 0) {
+                container.innerHTML = '';
+                noDataMsg.classList.remove('hidden');
+                return;
+            }
+            
+            noDataMsg.classList.add('hidden');
+            container.innerHTML = hs.map(h => {
+                const totalIncome = h.income.reduce((sum, i) => sum + parseFloat(i.amount), 0);
+                const totalExpenses = h.expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                const remaining = totalIncome - totalExpenses;
+                const hasPassword = h.password ? '🔒' : '';
+                
+                return `
+                    <div class="card-hover bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg transition-all">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-800 dark:text-white">${escapeHtml(h.name)} ${hasPassword}</h3>
+                                <span class="text-sm text-gray-500">${currencySymbols[h.currency]}</span>
+                            </div>
+                            <span class="text-2xl">📂</span>
+                        </div>
+                        <div class="space-y-2 mb-4">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-500">Income</span>
+                                <span class="text-green-600 font-medium">${formatNumber(totalIncome)}</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-500">Expenses</span>
+                                <span class="text-red-600 font-medium">${formatNumber(totalExpenses)}</span>
+                            </div>
+                            <div class="flex justify-between text-sm pt-2 border-t dark:border-gray-700">
+                                <span class="text-gray-500">Remaining</span>
+                                <span class="font-semibold ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}">${formatNumber(remaining)}</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="attemptOpenH(${h.id})" class="flex-1 py-2 gradient-bg text-white text-sm font-medium rounded-lg hover:opacity-90 transition">
+                                Open
+                            </button>
+                            <button onclick="prepareRename(${h.id})" class="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg hover:bg-blue-200 transition">
+                                ✏️
+                            </button>
+                            <button onclick="prepareDeleteH(${h.id})" class="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-lg hover:bg-red-200 transition">
+                                🗑
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function attemptOpenH(id) {
+            const h = appData.hs[id];
+            if (h.password) {
+                currentHId = id;
+                document.getElementById('unlockPassword').value = '';
+                document.getElementById('unlockModal').classList.add('active');
+            } else {
+                openHDetail(id);
+            }
+        }
+        
+        function unlockH() {
+            const h = appData.hs[currentHId];
+            const input = document.getElementById('unlockPassword').value;
+            
+            if (input === h.password) {
+                closeUnlockModal();
+                openHDetail(currentHId);
+            } else {
+                showToast('Incorrect password', 'error');
+            }
+        }
+        
+        function closeUnlockModal() {
+            document.getElementById('unlockModal').classList.remove('active');
+        }
+        
+        function openHDetail(id) {
+            currentHId = id;
+            const h = appData.hs[id];
+            
+            document.getElementById('currentHName').textContent = h.name;
+            document.getElementById('hCurrencySelect').value = h.currency;
+            
+            updateHDetail();
+            showPage('hDetailPage');
+        }
+        
+        function updateHDetail() {
+            const h = appData.hs[currentHId];
+            if (!h) return;
+            
+            const totalIncome = h.income.reduce((sum, i) => sum + parseFloat(i.amount), 0);
+            const totalExpenses = h.expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+            const remaining = totalIncome - totalExpenses;
+            const remainingToGoal = Math.max(0, h.goal - remaining);
+            const goalPercent = h.goal > 0 ? Math.min(100, (remaining / h.goal) * 100) : 0;
+            
+            document.getElementById('totalIncome').textContent = formatNumber(totalIncome);
+            document.getElementById('totalExpenses').textContent = formatNumber(totalExpenses);
+            document.getElementById('remainingBalance').textContent = formatNumber(remaining);
+            document.getElementById('remainingBalance').className = `text-2xl font-bold ${remaining >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`;
+            document.getElementById('financialGoal').textContent = formatNumber(h.goal);
+            document.getElementById('remainingToGoal').textContent = formatNumber(remainingToGoal);
+            document.getElementById('goalPercentage').textContent = goalPercent.toFixed(1) + '%';
+            document.getElementById('goalProgressBar').style.width = goalPercent + '%';
+            
+            renderTransactions();
+        }
+        
+        function updateHCurrency() {
+            const h = appData.hs[currentHId];
+            h.currency = document.getElementById('hCurrencySelect').value;
+            saveData();
+            showToast('Currency updated', 'success');
+        }
+        
+        // ==================== Transactions ====================
+        function openAddIncomeModal() {
+            document.getElementById('incomeDescription').value = '';
+            document.getElementById('incomeAmount').value = '';
+            document.getElementById('addIncomeModal').classList.add('active');
+        }
+        
+        function closeAddIncomeModal() {
+            document.getElementById('addIncomeModal').classList.remove('active');
+        }
+        
+        function addIncome() {
+            const description = document.getElementById('incomeDescription').value.trim();
+            const amount = parseFloat(document.getElementById('incomeAmount').value);
+            const category = document.getElementById('incomeCategory').value;
+            
+            if (!description || isNaN(amount) || amount <= 0) {
+                showToast('Please fill all fields correctly', 'error');
+                return;
+            }
+            
+            const h = appData.hs[currentHId];
+            h.income.push({
+                id: Date.now(),
+                description,
+                amount,
+                category,
+                date: new Date().toISOString()
+            });
+            
+            saveData();
+            updateHDetail();
+            closeAddIncomeModal();
+            showToast('Income added!', 'success');
+        }
+        
+        function openAddExpenseModal() {
+            document.getElementById('expenseDescription').value = '';
+            document.getElementById('expenseAmount').value = '';
+            document.getElementById('addExpenseModal').classList.add('active');
+        }
+        
+        function closeAddExpenseModal() {
+            document.getElementById('addExpenseModal').classList.remove('active');
+        }
+        
+        function addExpense() {
+            const description = document.getElementById('expenseDescription').value.trim();
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const category = document.getElementById('expenseCategory').value;
+            
+            if (!description || isNaN(amount) || amount <= 0) {
+                showToast('Please fill all fields correctly', 'error');
+                return;
+            }
+            
+            const h = appData.hs[currentHId];
+            h.expenses.push({
+                id: Date.now(),
+                description,
+                amount,
+                category,
+                date: new Date().toISOString()
+            });
+            
+            saveData();
+            updateHDetail();
+            closeAddExpenseModal();
+            showToast('Expense added!', 'success');
+        }
+        
+        function renderTransactions() {
+            const h = appData.hs[currentHId];
+            const container = document.getElementById('transactionsList');
+            const noDataMsg = document.getElementById('noTransactionsMessage');
+            
+            let transactions = [];
+            
+            if (transactionFilter === 'all' || transactionFilter === 'income') {
+                h.income.forEach(i => transactions.push({ ...i, type: 'income' }));
+            }
+            if (transactionFilter === 'all' || transactionFilter === 'expense') {
+                h.expenses.forEach(e => transactions.push({ ...e, type: 'expense' }));
+            }
+            
+            transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if (transactions.length === 0) {
+                container.innerHTML = '';
+                noDataMsg.classList.remove('hidden');
+                return;
+            }
+            
+            noDataMsg.classList.add('hidden');
+            container.innerHTML = transactions.slice(0, 50).map(t => {
+                const date = new Date(t.date).toLocaleDateString();
+                const icon = t.type === 'income' ? '💰' : '💸';
+                const bgClass = t.type === 'income' ? 'income-item bg-green-50 dark:bg-green-900/10' : 'expense-item bg-red-50 dark:bg-red-900/10';
+                const amountClass = t.type === 'income' ? 'text-green-600' : 'text-red-600';
+                const sign = t.type === 'income' ? '+' : '-';
+                
+                return `
+                    <div class="${bgClass} rounded-xl p-4 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">${icon}</span>
+                            <div>
+                                <div class="font-medium text-gray-800 dark:text-white">${escapeHtml(t.description)}</div>
+                                <div class="text-sm text-gray-500">${t.category} • ${date}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="font-semibold ${amountClass}">${sign}${formatNumber(t.amount)}</span>
+                            <button onclick="deleteTransaction('${t.type}', ${t.id})" class="p-1 text-gray-400 hover:text-red-500 transition">×</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function filterTransactions(filter) {
+            transactionFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('bg-purple-100', 'dark:bg-purple-900/30', 'text-purple-600');
+                btn.classList.add('bg-gray-100', 'dark:bg-gray-700', 'text-gray-600', 'dark:text-gray-400');
+            });
+            const activeBtn = document.querySelector(`[data-filter="${filter}"]`);
+            activeBtn.classList.remove('bg-gray-100', 'dark:bg-gray-700', 'text-gray-600', 'dark:text-gray-400');
+            activeBtn.classList.add('bg-purple-100', 'dark:bg-purple-900/30', 'text-purple-600');
+            renderTransactions();
+        }
+        
+        function deleteTransaction(type, id) {
+            const h = appData.hs[currentHId];
+            if (type === 'income') {
+                h.income = h.income.filter(i => i.id !== id);
+            } else {
+                h.expenses = h.expenses.filter(e => e.id !== id);
+            }
+            saveData();
+            updateHDetail();
+            showToast('Transaction deleted', 'success');
+        }
+        
+        // ==================== Goal ====================
+        function openSetGoalModal() {
+            const h = appData.hs[currentHId];
+            document.getElementById('goalAmount').value = h.goal || '';
+            document.getElementById('setGoalModal').classList.add('active');
+        }
+        
+        function closeSetGoalModal() {
+            document.getElementById('setGoalModal').classList.remove('active');
+        }
+        
+        function setGoal() {
+            const amount = parseFloat(document.getElementById('goalAmount').value);
+            if (isNaN(amount) || amount < 0) {
+                showToast('Please enter a valid amount', 'error');
+                return;
+            }
+            
+            const h = appData.hs[currentHId];
+            h.goal = amount;
+            saveData();
+            updateHDetail();
+            closeSetGoalModal();
+            showToast('Goal updated!', 'success');
+        }
+        
+        // ==================== Notes ====================
+        function openNotesModal() {
+            const h = appData.hs[currentHId];
+            document.getElementById('notesContent').value = h.notes || '';
+            document.getElementById('notesModal').classList.add('active');
+        }
+        
+        function closeNotesModal() {
+            saveNotes();
+            document.getElementById('notesModal').classList.remove('active');
+        }
+        
+        function saveNotes() {
+            const h = appData.hs[currentHId];
+            h.notes = document.getElementById('notesContent').value;
+            saveData();
+            document.getElementById('notesStatus').textContent = 'Saved ✓';
+            setTimeout(() => {
+                document.getElementById('notesStatus').textContent = 'Auto-saved';
+            }, 2000);
+        }
+        
+        // ==================== Charts ====================
+        function openChartsModal() {
+            document.getElementById('chartsModal').classList.add('active');
+            renderCharts();
+        }
+        
+        function closeChartsModal() {
+            document.getElementById('chartsModal').classList.remove('active');
+            destroyCharts();
+        }
+        
+        function renderCharts() {
+            const h = appData.hs[currentHId];
+            const totalIncome = h.income.reduce((sum, i) => sum + parseFloat(i.amount), 0);
+            const totalExpenses = h.expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+            const remaining = totalIncome - totalExpenses;
+            
+            // Income vs Expenses Chart
+            const ctx1 = document.getElementById('incomeExpenseChart').getContext('2d');
+            charts.incomeExpense = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Income', 'Expenses', 'Remaining'],
+                    datasets: [{
+                        data: [totalIncome, totalExpenses, Math.max(0, remaining)],
+                        backgroundColor: ['#10b981', '#ef4444', '#8b5cf6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+            
+            // Category Breakdown
+            const categories = {};
+            h.expenses.forEach(e => {
+                categories[e.category] = (categories[e.category] || 0) + parseFloat(e.amount);
+            });
+            
+            const ctx2 = document.getElementById('categoryChart').getContext('2d');
+            charts.category = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(categories),
+                    datasets: [{
+                        label: 'Expenses by Category',
+                        data: Object.values(categories),
+                        backgroundColor: '#8b5cf6',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            
+            // Goal Progress
+            const ctx3 = document.getElementById('goalChart').getContext('2d');
+            charts.goal = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: ['Progress'],
+                    datasets: [
+                        {
+                            label: 'Saved',
+                            data: [Math.max(0, remaining)],
+                            backgroundColor: '#10b981',
+                            borderRadius: 8
+                        },
+                        {
+                            label: 'Remaining to Goal',
+                            data: [Math.max(0, h.goal - remaining)],
+                            backgroundColor: '#fbbf24',
+                            borderRadius: 8
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    indexAxis: 'y',
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: {
+                        x: { stacked: true, beginAtZero: true },
+                        y: { stacked: true }
+                    }
+                }
+            });
+        }
+        
+        function destroyCharts() {
+            Object.values(charts).forEach(chart => chart?.destroy());
+            charts = {};
+        }
+        
+        // ==================== Calculator ====================
+        let calcExpression = '';
+        
+        function openCalculator() {
+            calcExpression = '';
+            updateCalcDisplay();
+            document.getElementById('calculatorModal').classList.add('active');
+        }
+        
+        function closeCalculator() {
+            document.getElementById('calculatorModal').classList.remove('active');
+        }
+        
+        function calcInput(val) {
+            calcExpression += val;
+            updateCalcDisplay();
+        }
+        
+        function calcClear() {
+            calcExpression = '';
+            updateCalcDisplay();
+        }
+        
+        function calcEquals() {
+            try {
+                const result = eval(calcExpression);
+                calcExpression = String(result);
+                updateCalcDisplay();
+            } catch (e) {
+                calcExpression = 'Error';
+                updateCalcDisplay();
+                setTimeout(() => { calcExpression = ''; updateCalcDisplay(); }, 1500);
+            }
+        }
+        
+        function updateCalcDisplay() {
+            document.getElementById('calcDisplay').textContent = calcExpression || '0';
+        }
+        
+        function copyCalcResult() {
+            navigator.clipboard.writeText(calcExpression);
+            showToast('Result copied!', 'success');
+        }
+        
+        // ==================== Rename & Delete ====================
+        function openRenameModal() {
+            const h = appData.hs[currentHId];
+            document.getElementById('renameInput').value = h.name;
+            document.getElementById('renameModal').classList.add('active');
+        }
+        
+        function closeRenameModal() {
+            document.getElementById('renameModal').classList.remove('active');
+        }
+        
+        function renameH() {
+            const newName = document.getElementById('renameInput').value.trim();
+            if (!newName) {
+                showToast('Please enter a name', 'error');
+                return;
+            }
+            
+            const h = appData.hs[currentHId];
+            h.name = newName;
+            saveData();
+            document.getElementById('currentHName').textContent = newName;
+            closeRenameModal();
+            showToast('H renamed!', 'success');
+        }
+        
+        function prepareRename(id) {
+            currentHId = id;
+            const h = appData.hs[id];
+            document.getElementById('renameInput').value = h.name;
+            document.getElementById('renameModal').classList.add('active');
+        }
+        
+        function prepareDeleteH(id) {
+            currentHId = id;
+            pendingAction = 'deleteH';
+            const h = appData.hs[id];
+            document.getElementById('confirmMessage').textContent = `Are you sure you want to delete "${h.name}"? This action cannot be undone.`;
+            document.getElementById('confirmModal').classList.add('active');
+        }
+        
+        function confirmDeleteH() {
+            pendingAction = 'deleteCurrentH';
+            const h = appData.hs[currentHId];
+            document.getElementById('confirmMessage').textContent = `Are you sure you want to delete "${h.name}"? This action cannot be undone.`;
+            document.getElementById('confirmModal').classList.add('active');
+        }
+        
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.remove('active');
+            pendingAction = null;
+        }
+        
+        function confirmAction() {
+            if (pendingAction === 'deleteH' || pendingAction === 'deleteCurrentH') {
+                delete delete appData.hs[currentHId];
+                saveData();
+                closeConfirmModal();
+                showPage('myHsPage');
+                showToast('H deleted', 'success');
+            }
+        }
+        
+        // ==================== Password ====================
+        function openLockModal() {
+            document.getElementById('lockPassword').value = '';
+            document.getElementById('lockModal').classList.add('active');
+        }
+        
+        function closeLockModal() {
+            document.getElementById('lockModal').classList.remove('active');
+        }
+        
+        function setPassword() {
+            const password = document.getElementById('lockPassword').value;
+            const h = appData.hs[currentHId];
+            h.password = password || null;
+            saveData();
+            closeLockModal();
+            showToast(password ? 'Password set!' : 'Password removed!', 'success');
+            renderHsList();
+        }
+        
+        // ==================== Export Functions ====================
+        function exportAllData() {
+            const select = document.getElementById('exportHSelect');
+            select.innerHTML = '<option value="all">All Hs</option>';
+            Object.values(appData.hs).forEach(h => {
+                select.innerHTML += `<option value="${h.id}">${escapeHtml(h.name)}</option>`;
+            });
+            document.getElementById('exportModal').classList.add('active');
+        }
+        
+        function closeExportModal() {
+            document.getElementById('exportModal').classList.remove('active');
+        }
+        
+        function exportToExcel() {
+            const hId = document.getElementById('exportHSelect').value;
+            let data = [];
+            
+            if (hId === 'all') {
+                Object.values(appData.hs).forEach(h => {
+                    const totalIncome = h.income.reduce((sum, i) => sum + parseFloat(i.amount), 0);
+                    const totalExpenses = h.expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                    const remaining = totalIncome - totalExpenses;
+                    
+                    data.push({
+                        'H Name': h.name,
+                        'Currency': h.currency,
+                        'Total Income': totalIncome,
+                        'Total Expenses': totalExpenses,
+                        'Remaining': remaining,
+                        'Goal': h.goal,
+                        'Created': new Date(h.createdAt).toLocaleDateString()
+                    });
+                });
+            } else {
+                const h = appData.hs[hId];
+                const totalIncome = h.income.reduce((sum, i) => sum + parseFloat(i.amount), 0);
+                const totalExpenses = h.expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                const remaining = totalIncome - totalExpenses;
+                
+                data.push({
+                    'H Name': h.name,
+                    'Currency': h.currency,
+                    'Total Income': totalIncome,
+                    'Total Expenses': totalExpenses,
+                    'Remaining': remaining,
+                    'Goal': h.goal,
+                    'Created': new Date(h.createdAt).toLocaleDateString()
+                });
+            }
+            
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'H System Data');
+            XLSX.writeFile(wb, 'hsystem_export.xlsx');
+            
+            closeExportModal();
+            showToast('Excel file downloaded!', 'success');
+        }
+        
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const hId = document.getElementById('exportHSelect').value;
+            
+            doc.setFontSize(20);
+            doc.text('H System - Financial Report', 20, 20);
+            doc.setFontSize(10);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 28);
+            
+            let yPos = 45;
+            
+            if (hId === 'all') {
+                Object.values(appData.hs).forEach((h, index) => {
+                    if (yPos > 250) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    const totalIncome = h.income.reduce((sum, i) => sum + parseFloat(i.amount), 0);
+                    const totalExpenses = h.expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                    const remaining = totalIncome - totalExpenses;
+                    
+                    doc.setFontSize(14);
+                    doc.text(`${index + 1}. ${h.name}`, 20, yPos);
+                    yPos += 10;
+                    
+                    doc.setFontSize(10);
+                    doc.text(`Currency: ${h.currency}`, 25, yPos);
+                    doc.text(`Income: ${formatNumber(totalIncome)}`, 25, yPos + 7);
+                    doc.text(`Expenses: ${formatNumber(totalExpenses)}`, 25, yPos + 14);
+                    doc.text(`Remaining: ${formatNumber(remaining)}`, 25, yPos + 21);
+                    doc.text(`Goal: ${formatNumber(h.goal)}`, 25, yPos + 28);
+                    
+                    yPos += 40;
+                });
+            } else {
+                const h = appData.hs[hId];
+                const totalIncome = h.income.reduce((sum, i) => sum + parseFloat(i.amount), 0);
+                const totalExpenses = h.expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                const remaining = totalIncome - totalExpenses;
+                
+                doc.setFontSize(16);
+                doc.text(h.name, 20, yPos);
+                yPos += 15;
+                
+                doc.setFontSize(11);
+                doc.text(`Currency: ${h.currency}`, 20, yPos);
+                doc.text(`Total Income: ${formatNumber(totalIncome)}`, 20, yPos + 10);
+                doc.text(`Total Expenses: ${formatNumber(totalExpenses)}`, 20, yPos + 20);
+                doc.text(`Remaining Balance: ${formatNumber(remaining)}`, 20, yPos + 30);
+                doc.text(`Financial Goal: ${formatNumber(h.goal)}`, 20, yPos + 40);
+                
+                yPos += 55;
+                
+                if (h.notes) {
+                    doc.setFontSize(12);
+                    doc.text('Notes:', 20, yPos);
+                    doc.setFontSize(10);
+                    const splitNotes = doc.splitTextToSize(h.notes, 170);
+                    doc.text(splitNotes, 20, yPos + 8);
+                }
+            }
+            
+            doc.save('hsystem_report.pdf');
+            closeExportModal();
+            showToast('PDF downloaded!', 'success');
+        }
+        
+        // ==================== Backup ====================
+        function showBackupModal() {
+            document.getElementById('backupModal').classList.add('active');
+        }
+        
+        function closeBackupModal() {
+            document.getElementById('backupModal').classList.remove('active');
+        }
+        
+        function exportBackup() {
+            const backup = {
+                version: '1.0',
+                date: new Date().toISOString(),
+                data: appData,
+                settings: settings
+            };
+            
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hsystem_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            closeBackupModal();
+            showToast('Backup exported!', 'success');
+        }
+        
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    if (backup.data && backup.data.hs) {
+                        appData = backup.data;
+                        if (backup.settings) {
+                            settings = backup.settings;
+                            saveSettings();
+                            applyTheme();
+                        }
+                        saveData();
+                        updateDashboardStats();
+                        closeBackupModal();
+                        showToast('Backup restored!', 'success');
+                    } else {
+                        throw new Error('Invalid backup format');
+                    }
+                } catch (err) {
+                    showToast('Invalid backup file', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+        
+        // ==================== Dashboard Stats ====================
+        function updateDashboardStats() {
+            const hs = Object.values(appData.hs);
+            let totalIncome = 0;
+            let totalExpenses = 0;
+            
+            hs.forEach(h => {
+                totalIncome += h.income.reduce((sum, i) => sum + parseFloat(i.amount), 0);
+                totalExpenses += h.expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+            });
+            
+            document.getElementById('totalHsCount').textContent = hs.length;
+            document.getElementById('totalIncomeAll').textContent = formatNumberCompact(totalIncome);
+            document.getElementById('totalExpenseAll').textContent = formatNumberCompact(totalExpenses);
+        }
+        
+        // ==================== Utilities ====================
+        function formatNumber(num) {
+            return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+        }
+        
+        function formatNumberCompact(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return formatNumber(num);
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            toastMessage.textContent = message;
+            toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-xl shadow-lg transform transition-all duration-300 z-50 ${
+                type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-gray-800'
+            } text-white`;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+        
+        function exitApp() {
+            if (typeof window.close === 'function') {
+                window.close();
+            } else {
+                showToast('Press Alt+F4 or Cmd+Q to close', 'info');
+            }
+        }
+        
+        // ==================== Keyboard Shortcuts ====================
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+            }
+        });
+        
+        // Initialize app on load
+        document.addEventListener('DOMContentLoaded', initApp);
+        
+        // Auto-save notes while typing
+        document.getElementById('notesContent')?.addEventListener('input', debounce(() => {
+            if (document.getElementById('notesModal').classList.contains('active')) {
+                saveNotes();
+            }
+        }, 1000));
+        
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+    </script>
+</body>
+</html>
